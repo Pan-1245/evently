@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/Pan-1245/evently/service/booking/domain"
 	port "github.com/Pan-1245/evently/service/booking/port/event"
@@ -29,7 +30,6 @@ func (uc *EventUseCase) ListPaginated(ctx context.Context, page int, limit int) 
 		eventResponses = append(eventResponses, MapEventResponse(e))
 	}
 
-	// if limit <= 0, we treat it as "fetch all"
 	if limit <= 0 {
 		limit = len(events)
 		page = 1
@@ -47,14 +47,14 @@ func (uc *EventUseCase) ListPaginated(ctx context.Context, page int, limit int) 
 	return res, nil
 }
 
-func (uc *EventUseCase) GetByID(ctx context.Context, id uuid.UUID) (*dto.EventResponse, error) {
+func (uc *EventUseCase) GetByID(ctx context.Context, id uuid.UUID) (*dto.EventResponse, *domain.Event, error) {
 	event, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	res := MapEventResponse(event)
-	return res, nil
+	return res, event, nil
 }
 
 func (uc *EventUseCase) GetByOrganizerID(ctx context.Context, organizerID uuid.UUID) ([]*dto.EventResponse, error) {
@@ -89,17 +89,21 @@ func (uc *EventUseCase) Create(ctx context.Context, req dto.UpsertEventRequest) 
 	return res, nil
 }
 
-func (uc *EventUseCase) Update(ctx context.Context, id uuid.UUID, req dto.UpsertEventRequest) error {
-	event := &domain.Event{
-		ID:          id,
-		Title:       req.Title,
-		Description: req.Description,
-		StartTime:   req.StartTime,
-		EndTime:     req.EndTime,
-		Location:    req.Location,
-		IsActive:    req.IsActive,
+func (uc *EventUseCase) Update(ctx context.Context, existing *domain.Event, req dto.UpsertEventRequest) (*dto.EventResponse, error) {
+	existing.Title = req.Title
+	existing.Description = req.Description
+	existing.StartTime = req.StartTime
+	existing.EndTime = req.EndTime
+	existing.Location = req.Location
+	existing.IsActive = req.IsActive
+	existing.UpdatedAt = time.Now()
+
+	if err := uc.repo.Update(ctx, existing); err != nil {
+		return nil, err
 	}
-	return uc.repo.Update(ctx, event)
+
+	res := MapEventResponse(existing)
+	return res, nil
 }
 
 func (uc *EventUseCase) Delete(ctx context.Context, id uuid.UUID) error {

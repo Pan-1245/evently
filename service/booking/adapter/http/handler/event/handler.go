@@ -34,29 +34,30 @@ func (h *EventHandler) ListPaginated(c *gin.Context) {
 
 	res, err := h.usecase.ListPaginated(c.Request.Context(), page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, response.Wrapper[any]{
+		c.JSON(http.StatusInternalServerError, response.ErrorWrapper{
 			StatusCode: http.StatusInternalServerError,
 			Success:    false,
 			Message:    "Failed to fetch events",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
 	if len(res.Data) == 0 {
-		c.JSON(http.StatusNoContent, response.Wrapper[*response.PageResponse[*dto.EventResponse]]{
+		c.JSON(http.StatusNoContent, response.SuccessWrapper[*response.PageResponse[*dto.EventResponse]]{
 			StatusCode: http.StatusNoContent,
 			Success:    true,
 			Message:    "No events found",
-			Data:       response.DataWrapper[*response.PageResponse[*dto.EventResponse]]{Data: &res},
+			Data:       &res,
 		})
+		return
 	}
 
-	c.JSON(http.StatusOK, response.Wrapper[*response.PageResponse[*dto.EventResponse]]{
+	c.JSON(http.StatusOK, response.SuccessWrapper[*response.PageResponse[*dto.EventResponse]]{
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Message:    "Events retrieved successfully",
-		Data:       response.DataWrapper[*response.PageResponse[*dto.EventResponse]]{Data: &res},
+		Data:       &res,
 	})
 }
 
@@ -64,31 +65,31 @@ func (h *EventHandler) ListPaginated(c *gin.Context) {
 func (h *EventHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
 			StatusCode: http.StatusBadRequest,
 			Success:    false,
 			Message:    "Invalid UUID",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	event, err := h.usecase.GetByID(c.Request.Context(), id)
+	event, _, err := h.usecase.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, response.Wrapper[any]{
+		c.JSON(http.StatusNotFound, response.ErrorWrapper{
 			StatusCode: http.StatusNotFound,
 			Success:    false,
 			Message:    "Event not found",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Wrapper[*dto.EventResponse]{
+	c.JSON(http.StatusOK, response.SuccessWrapper[*dto.EventResponse]{
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Message:    "Event retrieved successfully",
-		Data:       response.DataWrapper[*dto.EventResponse]{Data: &event},
+		Data:       &event,
 	})
 }
 
@@ -96,31 +97,31 @@ func (h *EventHandler) GetByID(c *gin.Context) {
 func (h *EventHandler) GetByOrganizerID(c *gin.Context) {
 	organizerID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
 			StatusCode: http.StatusBadRequest,
 			Success:    false,
 			Message:    "Invalid UUID",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
 	events, err := h.usecase.GetByOrganizerID(c.Request.Context(), organizerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, response.Wrapper[any]{
+		c.JSON(http.StatusInternalServerError, response.ErrorWrapper{
 			StatusCode: http.StatusInternalServerError,
 			Success:    false,
 			Message:    "Failed to fetch events",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Wrapper[[]*dto.EventResponse]{
+	c.JSON(http.StatusOK, response.SuccessWrapper[[]*dto.EventResponse]{
 		StatusCode: http.StatusOK,
 		Success:    true,
 		Message:    "Events retrieved successfully",
-		Data:       response.DataWrapper[[]*dto.EventResponse]{Data: &events},
+		Data:       &events,
 	})
 }
 
@@ -128,73 +129,86 @@ func (h *EventHandler) GetByOrganizerID(c *gin.Context) {
 func (h *EventHandler) Create(c *gin.Context) {
 	var req dto.UpsertEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
 			StatusCode: http.StatusBadRequest,
 			Success:    false,
 			Message:    "Invalid input",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
 	res, err := h.usecase.Create(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, response.Wrapper[any]{
+		c.JSON(http.StatusInternalServerError, response.ErrorWrapper{
 			StatusCode: http.StatusInternalServerError,
 			Success:    false,
 			Message:    "Failed to create event",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, response.Wrapper[*dto.EventResponse]{
+	c.JSON(http.StatusCreated, response.SuccessWrapper[*dto.EventResponse]{
 		StatusCode: http.StatusCreated,
 		Success:    true,
 		Message:    "Event created successfully",
-		Data:       response.DataWrapper[*dto.EventResponse]{Data: &res},
+		Data:       &res,
 	})
 }
 
 // PUT /events/:id
 func (h *EventHandler) Update(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
+			StatusCode: http.StatusBadRequest,
+			Success:    false,
+			Message:    "Invalid event ID format",
+			Error:      err.Error(),
+		})
+		return
+	}
+
+	_, event, err := h.usecase.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, response.ErrorWrapper{
+			StatusCode: http.StatusNotFound,
+			Success:    false,
+			Message:    "Event not found",
+			Error:      err.Error(),
+		})
+		return
+	}
+
 	var req dto.UpsertEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
 			StatusCode: http.StatusBadRequest,
 			Success:    false,
-			Message:    "Invalid input",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Message:    "Invalid request body",
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	id, err := uuid.Parse(c.Param("id"))
+	res, err := h.usecase.Update(c.Request.Context(), event, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
-			StatusCode: http.StatusBadRequest,
-			Success:    false,
-			Message:    "Invalid UUID",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
-		})
-		return
-	}
-
-	if err := h.usecase.Update(c.Request.Context(), id, req); err != nil {
-		c.JSON(http.StatusInternalServerError, response.Wrapper[any]{
+		c.JSON(http.StatusInternalServerError, response.ErrorWrapper{
 			StatusCode: http.StatusInternalServerError,
 			Success:    false,
-			Message:    "Failed to update event",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Message:    "Could not update event",
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusNoContent, response.Wrapper[any]{
-		StatusCode: http.StatusNoContent,
+	c.JSON(http.StatusOK, response.SuccessWrapper[*dto.EventResponse]{
+		StatusCode: http.StatusOK,
 		Success:    true,
 		Message:    "Event updated successfully",
-		Data:       response.DataWrapper[any]{},
+		Data:       &res,
 	})
 }
 
@@ -202,29 +216,40 @@ func (h *EventHandler) Update(c *gin.Context) {
 func (h *EventHandler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, response.Wrapper[any]{
+		c.JSON(http.StatusBadRequest, response.ErrorWrapper{
 			StatusCode: http.StatusBadRequest,
 			Success:    false,
 			Message:    "Invalid UUID",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
+		})
+		return
+	}
+
+	_, _, err = h.usecase.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, response.ErrorWrapper{
+			StatusCode: http.StatusNotFound,
+			Success:    false,
+			Message:    "Event not found",
+			Error:      err.Error(),
 		})
 		return
 	}
 
 	if err := h.usecase.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, response.Wrapper[any]{
+		c.JSON(http.StatusInternalServerError, response.ErrorWrapper{
 			StatusCode: http.StatusInternalServerError,
 			Success:    false,
 			Message:    "Failed to delete event",
-			Data:       response.DataWrapper[any]{Error: err.Error()},
+			Error:      err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusNoContent, response.Wrapper[any]{
-		StatusCode: http.StatusNoContent,
+	c.JSON(http.StatusOK, response.SuccessWrapper[any]{
+		StatusCode: http.StatusOK,
 		Success:    true,
 		Message:    "Event deleted successfully",
-		Data:       response.DataWrapper[any]{},
+		Data:       nil,
 	})
 }

@@ -63,7 +63,19 @@ func (r *eventRepository) Create(ctx context.Context, event *domain.Event) error
 
 // Update implements port.EventRepository.
 func (r *eventRepository) Update(ctx context.Context, event *domain.Event) error {
-	return r.db.WithContext(ctx).Save(event).Error
+	return r.db.WithContext(ctx).
+		Model(&domain.Event{}).
+		Where("id = ?", event.ID).
+		Updates(map[string]interface{}{
+			"title":        event.Title,
+			"description":  event.Description,
+			"start_time":   event.StartTime,
+			"end_time":     event.EndTime,
+			"location":     event.Location,
+			"is_active":    event.IsActive,
+			"updated_at":   event.UpdatedAt,
+			"organizer_id": event.OrganizerID,
+		}).Error
 }
 
 // Delete implements port.EventRepository.

@@ -43,6 +43,15 @@ func (h *EventHandler) ListPaginated(c *gin.Context) {
 		return
 	}
 
+	if len(res.Data) == 0 {
+		c.JSON(http.StatusNoContent, response.Wrapper[*response.PageResponse[*dto.EventResponse]]{
+			StatusCode: http.StatusNoContent,
+			Success:    true,
+			Message:    "No events found",
+			Data:       response.DataWrapper[*response.PageResponse[*dto.EventResponse]]{Data: &res},
+		})
+	}
+
 	c.JSON(http.StatusOK, response.Wrapper[*response.PageResponse[*dto.EventResponse]]{
 		StatusCode: http.StatusOK,
 		Success:    true,

@@ -7,7 +7,6 @@ import (
 	handler "github.com/Pan-1245/evently/service/booking/adapter/http/handler/event"
 	store "github.com/Pan-1245/evently/service/booking/adapter/store/event"
 	"github.com/Pan-1245/evently/service/booking/config"
-	"github.com/Pan-1245/evently/service/booking/domain"
 	"github.com/Pan-1245/evently/service/booking/infra"
 	port "github.com/Pan-1245/evently/service/booking/port/event"
 	route "github.com/Pan-1245/evently/service/booking/route/event"
@@ -19,10 +18,6 @@ func main() {
 	config.LoadEnv()
 
 	db := infra.NewDB()
-
-	if err := db.AutoMigrate(&domain.Event{}); err != nil {
-		log.Fatalf("Failed to auto-migrate: %v", err)
-	}
 
 	var (
 		repo    port.EventRepository  = store.NewEventRepository(db)
